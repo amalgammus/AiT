@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 class="mb-4">User List</h2>
+
+{% if can_edit %}
+    <a href="{{ url_for('user.create_user') }}" class="btn btn-primary mb-3">Create User</a>
+{% endif %}
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Department</th>
+            {% if can_edit %}<th>Actions</th>{% endif %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
+        <tr>
+            <td>{{ user.username }}</td>
+            <td>{{ user.email }}</td>
+            <td>{% if user.is_admin %}Admin{% else %}User{% endif %}</td>
+            <td>{{ user.department.name if user.department else '-' }}</td>
+            {% if can_edit %}
+            <td>
+                <a href="{{ url_for('user.edit_user', id=user.id) }}" class="btn btn-sm btn-warning">Edit</a>
+                {% if current_user.id != user.id %}
+                <form method="POST" action="{{ url_for('user.delete_user', id=user.id) }}" style="display:inline;">
+                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')">Delete</button>
+                </form>
+                {% endif %}
+            </td>
+            {% endif %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

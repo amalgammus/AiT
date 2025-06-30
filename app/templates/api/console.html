@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>API Console</h2>
+
+    <div class="row">
+        <!-- Блок управления конфигурациями -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>API Configurations</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="selectForm">
+                        <input type="hidden" name="form_type" value="select_config">
+                        {{ select_form.hidden_tag() }}
+                        <div class="mb-3">
+                            {{ select_form.config(class="form-select") }}
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Load</button>
+                    </form>
+
+                    <hr>
+
+                    <form method="POST" id="configForm">
+                        <input type="hidden" name="form_type" value="save_config">
+                        <input type="hidden" name="config_id" value="{{ selected_config.id if selected_config else '' }}">
+                        {{ config_form.hidden_tag() }}
+
+                        <div class="mb-3">
+                            {{ config_form.name.label(class="form-label") }}
+                            {{ config_form.name(class="form-control") }}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ config_form.base_url.label(class="form-label") }}
+                            {{ config_form.base_url(class="form-control", placeholder="https://ip:port") }}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ config_form.secret_key.label(class="form-label") }}
+                            {{ config_form.secret_key(class="form-control", type="password") }}
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            {{ config_form.verify_ssl(class="form-check-input") }}
+                            {{ config_form.verify_ssl.label(class="form-check-label") }}
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            {{ config_form.is_default(class="form-check-input") }}
+                            {{ config_form.is_default.label(class="form-check-label") }}
+                        </div>
+
+                        <button type="submit" class="btn btn-success w-100">
+                            {{ 'Update' if selected_config else 'Save' }} Configuration
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Блок выполнения API запросов -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5>API Request</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="apiForm">
+                        <input type="hidden" name="form_type" value="execute_api">
+                        <input type="hidden" name="selected_config_id" value="{{ selected_config.id if selected_config else '' }}">
+
+                        <div class="mb-3">
+                            <label class="form-label">Selected Configuration:</label>
+                            <input type="text" class="form-control" readonly
+                                   value="{{ selected_config.name if selected_config else 'None (using default)' }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="api_method" class="form-label">API Method</label>
+                            <select class="form-select" id="api_method" name="api_method" required
+                                    onchange="updateFormFields()">
+                                <option value="">Select method...</option>
+                                {% for method in api_methods %}
+                                <option value="{{ method.name }}" {% if request.form.api_method == method.name %}selected{% endif %}>
+                                    {{ method.name }} ({{ method.method }}) - {{ method.description }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Дополнительные поля для get_crew_info -->
+                        <div id="crew_info_fields" style="display: none;">
+                            <div class="mb-3">
+                                <label for="crew_id" class="form-label">Crew ID*</label>
+                                <input type="number" class="form-control" id="crew_id" name="crew_id"
+                                       value="{{ request.form.crew_id if request.form.crew_id else '' }}">
+                            </div>
+                            <div class="mb-3">
+                                <label for="fields" class="form-label">Fields (comma separated)</label>
+                                <input type="text" class="form-control" id="fields" name="fields"
+                                       value="{{ request.form.fields if request.form.fields else '' }}"
+                                       placeholder="code,name,driver_id,car_id">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100">Execute</button>
+                    </form>
+
+                    {% if result %}
+                    <div class="mt-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5>Response:</h5>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-secondary active"
+                                        id="jsonViewBtn" onclick="switchView('json')">JSON</button>
+                                <button type="button" class="btn btn-outline-secondary"
+                                        id="tableViewBtn" onclick="switchView('table')">Table</button>
+                            </div>
+                        </div>
+
+                        <!-- JSON View -->
+                        <div id="jsonView">
+                            <pre class="bg-light p-3 rounded">{{ result }}</pre>
+                        </div>
+
+                        <!-- Table View -->
+                        <div id="tableView" style="display: none;">
+                            {% if method_name == 'get_crew_groups_list' %}
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Name</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for group in result_json.data.crew_groups %}
+                                        <tr>
+                                            <td>{{ group.id }}</td>
+                                            <td>{{ group.name }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+
+                            {% elif method_name == 'get_order_states_list' %}
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Name</th>
+                                            <th>State Type</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for state in result_json.data.order_states %}
+                                        <tr>
+                                            <td>{{ state.id }}</td>
+                                            <td>{{ state.name }}</td>
+                                            <td>{{ state.state_type }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+
+                            {% elif method_name == 'get_crew_info' %}
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <h6>Crew Info</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            {% for key, value in result_json.data.items() %}
+                                                {% if key not in ['attribute_values', 'order_params'] %}
+                                                <div class="col-md-4 mb-2">
+                                                    <strong>{{ key }}:</strong>
+                                                    <span>{{ value }}</span>
+                                                </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {% if result_json.data.attribute_values %}
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <h6>Attribute Values</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>ID</th>
+                                                    <th>Bool Value</th>
+                                                    <th>Num Value</th>
+                                                    <th>Str Value</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for attr in result_json.data.attribute_values %}
+                                                <tr>
+                                                    <td>{{ attr.id }}</td>
+                                                    <td>{{ attr.bool_value if attr.bool_value is not none else '' }}</td>
+                                                    <td>{{ attr.num_value if attr.num_value is not none else '' }}</td>
+                                                    <td>{{ attr.str_value if attr.str_value is not none else '' }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                            {% else %}
+                                <div class="alert alert-info">
+                                    Table view not available for this response type
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mt-2">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="copyToClipboard()">
+                                <i class="bi bi-clipboard"></i> Copy to clipboard
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Преобразуем строку JSON в объект JavaScript
+    const result_json = {{ result_json|tojson|safe }};
+
+    function updateFormFields() {
+        const method = document.getElementById('api_method').value;
+        const crewFields = document.getElementById('crew_info_fields');
+
+        if (method === 'get_crew_info') {
+            crewFields.style.display = 'block';
+        } else {
+            crewFields.style.display = 'none';
+        }
+    }
+
+    function switchView(viewType) {
+        const jsonView = document.getElementById('jsonView');
+        const tableView = document.getElementById('tableView');
+        const jsonBtn = document.getElementById('jsonViewBtn');
+        const tableBtn = document.getElementById('tableViewBtn');
+
+        if (viewType === 'json') {
+            jsonView.style.display = 'block';
+            tableView.style.display = 'none';
+            jsonBtn.classList.add('active');
+            tableBtn.classList.remove('active');
+        } else {
+            jsonView.style.display = 'none';
+            tableView.style.display = 'block';
+            jsonBtn.classList.remove('active');
+            tableBtn.classList.add('active');
+        }
+    }
+
+    function copyToClipboard() {
+        const text = document.querySelector('pre').innerText;
+        navigator.clipboard.writeText(text).then(() => {
+            const toast = new bootstrap.Toast(document.getElementById('copyToast'));
+            toast.show();
+        });
+    }
+
+    // Инициализация при загрузке
+    document.addEventListener('DOMContentLoaded', function() {
+        updateFormFields();
+    });
+</script>
+
+<style>
+    .btn-group .btn.active {
+        background-color: #0d6efd;
+        color: white;
+    }
+    pre {
+        max-height: 500px;
+        overflow-y: auto;
+    }
+    .table {
+        font-size: 0.9rem;
+    }
+    .card-body .row > div {
+        padding: 0.25rem;
+    }
+</style>
+
+<!-- Toast notification for copy -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="copyToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="me-auto">API Console</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">
+            JSON copied to clipboard!
+        </div>
+    </div>
+</div>
+{% endblock %}
