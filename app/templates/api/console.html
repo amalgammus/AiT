@@ -5,7 +5,7 @@
     <h2>API Console</h2>
 
     <div class="row">
-        <!-- Блок управления конфигурациями -->
+        <!-- Configuration Block -->
         <div class="col-md-4">
             <div class="card mb-4">
                 <div class="card-header">
@@ -61,7 +61,7 @@
             </div>
         </div>
 
-        <!-- Блок выполнения API запросов -->
+        <!-- API Request Block -->
         <div class="col-md-8">
             <div class="card">
                 <div class="card-header">
@@ -91,7 +91,7 @@
                             </select>
                         </div>
 
-                        <!-- Дополнительные поля для get_crew_info -->
+                        <!-- Crew Info Fields -->
                         <div id="crew_info_fields" style="display: none;">
                             <div class="mb-3">
                                 <label for="crew_id" class="form-label">Crew ID*</label>
@@ -103,6 +103,26 @@
                                 <input type="text" class="form-control" id="fields" name="fields"
                                        value="{{ request.form.fields if request.form.fields else '' }}"
                                        placeholder="code,name,driver_id,car_id">
+                            </div>
+                        </div>
+
+                        <!-- Change Order State Fields -->
+                        <div id="change_order_state_fields" style="display: none;">
+                            <div class="mb-3">
+                                <label for="order_id" class="form-label">Order ID*</label>
+                                <input type="number" class="form-control" id="order_id" name="order_id"
+                                       value="{{ request.form.order_id if request.form.order_id else '' }}">
+                            </div>
+                            <div class="mb-3">
+                                <label for="new_state" class="form-label">New State*</label>
+                                <select class="form-select" id="new_state" name="new_state">
+                                    <option value="">Loading states...</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="cancel_order_penalty_sum" class="form-label">Cancel Order Penalty Sum (optional)</label>
+                                <input type="number" step="0.01" class="form-control" id="cancel_order_penalty_sum" name="cancel_order_penalty_sum"
+                                       value="{{ request.form.cancel_order_penalty_sum if request.form.cancel_order_penalty_sum else '' }}">
                             </div>
                         </div>
 
@@ -235,6 +255,19 @@
                                 </div>
                                 {% endif %}
 
+                            {% elif method_name == 'change_order_state' %}
+                                <div class="alert alert-success">
+                                    <h6>Order state changed successfully</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <strong>Order ID:</strong> {{ result_json.data.order_id }}
+                                        </div>
+                                        <div class="col-md-6">
+                                            <strong>New State:</strong> {{ result_json.data.new_state }}
+                                        </div>
+                                    </div>
+                                </div>
+
                             {% else %}
                                 <div class="alert alert-info">
                                     Table view not available for this response type
@@ -256,18 +289,60 @@
 </div>
 
 <script>
-    // Преобразуем строку JSON в объект JavaScript
     const result_json = {{ result_json|tojson|safe }};
 
     function updateFormFields() {
         const method = document.getElementById('api_method').value;
         const crewFields = document.getElementById('crew_info_fields');
+        const orderStateFields = document.getElementById('change_order_state_fields');
 
-        if (method === 'get_crew_info') {
-            crewFields.style.display = 'block';
-        } else {
-            crewFields.style.display = 'none';
+        crewFields.style.display = method === 'get_crew_info' ? 'block' : 'none';
+        orderStateFields.style.display = method === 'change_order_state' ? 'block' : 'none';
+
+        if (method === 'change_order_state') {
+            loadOrderStates();
         }
+    }
+
+    function loadOrderStates() {
+        const newStateSelect = document.getElementById('new_state');
+
+        // Show loading indicator
+        newStateSelect.innerHTML = '<option value="" class="loading">Loading states...</option>';
+        newStateSelect.disabled = true;
+
+        fetch(`{{ url_for('api.api_console') }}?form_type=load_states`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+            }
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        })
+        .then(data => {
+            newStateSelect.innerHTML = '<option value="">Select state...</option>';
+            newStateSelect.disabled = false;
+
+            if (data.states && data.states.length > 0) {
+                data.states.forEach(state => {
+                    const option = document.createElement('option');
+                    option.value = state.id;
+                    option.textContent = `${state.id} - ${state.name}`;
+                    newStateSelect.appendChild(option);
+                });
+            } else if (data.error) {
+                newStateSelect.innerHTML = `<option value="">Error: ${data.error}</option>`;
+            } else {
+                newStateSelect.innerHTML = '<option value="">No states available</option>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading order states:', error);
+            newStateSelect.innerHTML = '<option value="">Error loading states</option>';
+            newStateSelect.disabled = false;
+        });
     }
 
     function switchView(viewType) {
@@ -297,7 +372,6 @@
         });
     }
 
-    // Инициализация при загрузке
     document.addEventListener('DOMContentLoaded', function() {
         updateFormFields();
     });
@@ -317,6 +391,14 @@
     }
     .card-body .row > div {
         padding: 0.25rem;
+    }
+    select[disabled] {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+    .loading {
+        color: #6c757d;
+        font-style: italic;
     }
 </style>
 

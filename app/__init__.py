@@ -2,6 +2,7 @@ from flask import Flask, render_template, redirect, url_for, flash, request
 from app.config import Config
 from app.extensions import db, login_manager, migrate
 from sqlalchemy.exc import IntegrityError
+import logging
 
 
 def create_app(config_class=Config):
@@ -27,6 +28,7 @@ def create_app(config_class=Config):
     # Login manager settings
     login_manager.login_view = 'auth.login'
     login_manager.login_message_category = 'info'
+    logging.getLogger('app.api').setLevel(Config.API_LOG_LEVEL)
 
     @app.errorhandler(403)
     def forbidden_error(error):

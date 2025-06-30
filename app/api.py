@@ -1,10 +1,11 @@
 import hashlib
 import requests
-import ssl
+import logging
 from urllib3.util.ssl_ import create_urllib3_context
-from flask import current_app
-from functools import wraps
 from requests.adapters import HTTPAdapter
+
+# Настройка логирования
+logger = logging.getLogger(__name__)
 
 
 class CustomHTTPAdapter(HTTPAdapter):
@@ -36,79 +37,138 @@ class APIClient:
         return session
 
     def _calculate_signature(self, params):
-        param_str = '&'.join(f"{k}={v}" for k, v in sorted(params.items()))
-        return hashlib.md5(f"{param_str}{self.secret_key}".encode()).hexdigest()
+        """Calculate MD5 signature for request parameters"""
+        # param_str = '&'.join(f"{k}={v}" for k, v in sorted(params.items()))
+        param_str = '&'.join(f"{k}={v}" for k, v in params.items())
+        logger.debug(f"Param: {param_str}")
+        signature = hashlib.md5(f"{param_str}{self.secret_key}".encode()).hexdigest()
+        logger.debug(f"Calculated signature: {signature} for params: {params}")
+        return signature
 
     def _make_request(self, method, endpoint, params=None, data=None, json_data=None):
         url = f"{self.base_url}/common_api/1.0/{endpoint}"
         headers = {}
+        request_params = params or {}
+        request_data = data or {}
 
-        # Добавляем подпись для всех методов, кроме ping
+        # Логирование перед запросом
+        logger.debug("\n=== Preparing Request ===")
+        logger.debug(f"Endpoint: {endpoint}")
+        logger.debug(f"Method: {method}")
+        logger.debug(f"Base URL: {self.base_url}")
+        logger.debug(f"Full URL: {url}")
+        logger.debug(f"Params: {request_params}")
+        logger.debug(f"Data: {request_data}")
+        logger.debug(f"JSON Data: {json_data}")
+        logger.debug(f"Verify SSL: {self.verify_ssl}")
+
+        # Для всех методов кроме ping добавляем подпись
         if endpoint != 'ping':
-            headers['Signature'] = self._calculate_signature(params)
+            all_params = {**request_params, **request_data}
+            if json_data:
+                all_params.update(json_data)
+            signature = self._calculate_signature(all_params)
+            headers['Signature'] = signature
+
+        logger.debug("Headers: %s", headers)
 
         try:
             if method.upper() == 'GET':
+                logger.debug("Making GET request")
                 response = self.session.get(
                     url,
-                    params=params,
+                    params=request_params,
                     headers=headers,
                     verify=self.verify_ssl
                 )
             elif method.upper() == 'POST':
                 if json_data:
                     headers['Content-Type'] = 'application/json'
+                    logger.debug("Making POST request with JSON data")
                     response = self.session.post(
                         url,
+                        params=request_params,
                         json=json_data,
                         headers=headers,
                         verify=self.verify_ssl
                     )
                 else:
                     headers['Content-Type'] = 'application/x-www-form-urlencoded'
+                    form_data = {**request_params, **request_data}
+                    logger.debug("Making POST request with form data")
                     response = self.session.post(
                         url,
-                        data=data,
+                        data=form_data,
                         headers=headers,
                         verify=self.verify_ssl
                     )
             else:
+                error_msg = f"Unsupported HTTP method: {method}"
+                logger.error(error_msg)
                 return {
                     "code": -1,
-                    "descr": "Unsupported HTTP method",
+                    "descr": error_msg,
                     "data": {}
                 }
+
+            # Логирование ответа
+            logger.debug("\n=== Received Response ===")
+            logger.debug(f"Status Code: {response.status_code}")
+            logger.debug("Headers: %s", response.headers)
+            logger.debug("Response Text: %s", response.text)
+            logger.debug("=== End Response ===")
 
             return self._process_response(response)
 
         except requests.exceptions.SSLError as e:
+            error_msg = f"SSL Error: {str(e)}"
+            logger.error(error_msg)
             return {
                 "code": -1,
-                "descr": f"SSL Error: {str(e)}",
+                "descr": error_msg,
                 "data": {}
             }
         except requests.exceptions.RequestException as e:
+            error_msg = f"Request failed: {str(e)}"
+            logger.error(error_msg)
             return {
                 "code": -1,
-                "descr": f"Request failed: {str(e)}",
+                "descr": error_msg,
                 "data": {}
             }
 
+    def _process_response(self, response):
+        try:
+            json_response = response.json()
+            logger.debug("Parsed JSON response: %s", json_response)
+            return json_response
+        except ValueError as e:
+            error_msg = f"Invalid JSON response: {str(e)}"
+            logger.error(error_msg)
+            return {
+                "code": -1,
+                "descr": error_msg,
+                "data": {
+                    "status_code": response.status_code,
+                    "content": response.text[:500]
+                }
+            }
+
+    # API Methods
     def ping(self):
-        """Пинг для проверки доступности"""
+        """Проверка доступности сервера"""
+        logger.debug("Executing ping request")
         return self._make_request('GET', 'ping')
 
     def get_crew_groups_list(self):
         """Получить список групп экипажа"""
-        params = {}  # Пустые параметры, но подпись будет сгенерирована
+        logger.debug("Getting crew groups list")
+        params = {}
         return self._make_request('GET', 'get_crew_groups_list', params=params)
 
     def get_crew_info(self, crew_id, fields=None):
-        """
-        Получить информацию об экипаже
-        :param crew_id: ID экипажа (обязательный)
-        :param fields: список полей через запятую (опциональный)
-        """
+        """Получить информацию об экипаже"""
+        logger.debug(f"Getting crew info for crew_id: {crew_id}")
         params = {'crew_id': crew_id}
         if fields:
             params['fields'] = fields
@@ -116,23 +176,24 @@ class APIClient:
 
     def get_order_states_list(self):
         """Получить список состояний заказа"""
-        params = {}  # Пустые параметры, но подпись будет сгенерирована
+        logger.debug("Getting order states list")
+        params = {}
         return self._make_request('GET', 'get_order_states_list', params=params)
 
     def get_crew_states_list(self):
         """Получить список состояний экипажа"""
-        params = {}  # Пустые параметры, но подпись будет сгенерирована
+        logger.debug("Getting crew states list")
+        params = {}
         return self._make_request('GET', 'get_crew_states_list', params=params)
 
-    def _process_response(self, response):
-        try:
-            return response.json()
-        except ValueError:
-            return {
-                "code": -1,
-                "descr": "Invalid JSON response",
-                "data": {
-                    "status_code": response.status_code,
-                    "content": response.text[:500]
-                }
-            }
+    def change_order_state(self, order_id, new_state, cancel_order_penalty_sum=None):
+        """Изменить состояние заказа"""
+        logger.debug(f"Changing order state for order_id: {order_id} to new_state: {new_state}")
+        params = {
+            'order_id': order_id,
+            'new_state': new_state
+        }
+        if cancel_order_penalty_sum is not None:
+            params['cancel_order_penalty_sum'] = cancel_order_penalty_sum
+
+        return self._make_request('POST', 'change_order_state', data=params)

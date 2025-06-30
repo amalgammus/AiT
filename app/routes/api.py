@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for, abort
+from flask import Blueprint, render_template, request, flash, redirect, url_for, abort, jsonify
 from flask_login import login_required, current_user
 
 from app import db
@@ -29,10 +29,36 @@ def api_console():
         {'name': 'get_crew_info', 'method': 'GET', 'description': 'Получить информацию об экипаже'},
         {'name': 'get_order_states_list', 'method': 'GET', 'description': 'Получить список состояний заказа'},
         {'name': 'get_crew_states_list', 'method': 'GET', 'description': 'Получить список состояний экипажа'},
+        {'name': 'change_order_state', 'method': 'POST', 'description': 'Изменить состояние заказа'},
     ]
 
     result = None
     selected_config = None
+    order_states = None
+
+    # Обработка запроса на загрузку состояний
+    if request.args.get('form_type') == 'load_states':
+        try:
+            # Используем первую доступную конфигурацию
+            config = APIConfig.query.first()
+            if not config:
+                return jsonify({'error': 'No API configurations available'}), 404
+
+            client = APIClient(config.base_url, config.secret_key, config.verify_ssl)
+            result = client.get_order_states_list()
+
+            if result and result.get('code') == 0:
+                return jsonify({
+                    'states': result['data']['order_states']
+                })
+            return jsonify({
+                'error': result.get('descr', 'Failed to load states') if result else 'Empty response from API'
+            }), 400
+
+        except Exception as e:
+            return jsonify({
+                'error': f'Error loading states: {str(e)}'
+            }), 500
 
     # Обработка выбора конфигурации
     if select_form.validate_on_submit() and request.form.get('form_type') == 'select_config':
@@ -44,10 +70,9 @@ def api_console():
     elif config_form.validate_on_submit() and request.form.get('form_type') == 'save_config':
         config_id = request.form.get('config_id')
 
-        # Сброс других default, если выбран этот
         if config_form.is_default.data:
             APIConfig.query.update({'is_default': False})
-            db.session.commit()  # Важно: коммитим перед созданием/обновлением новой записи
+            db.session.commit()
 
         if config_id:
             config = APIConfig.query.get(config_id)
@@ -92,6 +117,19 @@ def api_console():
                 result = client.get_order_states_list()
             elif method_name == 'get_crew_states_list':
                 result = client.get_crew_states_list()
+            elif method_name == 'change_order_state':
+                order_id = request.form.get('order_id', '').strip()
+                new_state = request.form.get('new_state', '').strip()
+                penalty_sum = request.form.get('cancel_order_penalty_sum', '').strip()
+
+                if not order_id or not new_state:
+                    raise ValueError("order_id и new_state обязательны")
+
+                result = client.change_order_state(
+                    order_id=int(order_id),
+                    new_state=int(new_state),
+                    cancel_order_penalty_sum=float(penalty_sum) if penalty_sum else None
+                )
             else:
                 result = {
                     "code": -1,
@@ -111,7 +149,6 @@ def api_console():
                            config_form=config_form,
                            api_methods=api_methods,
                            result=json.dumps(result, indent=2, ensure_ascii=False) if result else None,
-                           result_json=result if result else None,  # Добавляем распарсенный JSON
+                           result_json=result if result else None,
                            selected_config=selected_config,
                            method_name=request.form.get('api_method') if request.method == 'POST' else None)
-
