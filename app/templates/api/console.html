@@ -166,6 +166,26 @@
                                     </tbody>
                                 </table>
 
+                            {% elif method_name == 'get_crew_states_list' %}
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Name</th>
+                                            <th>State Type</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for state in result_json.data.crew_states %}
+                                        <tr>
+                                            <td>{{ state.id }}</td>
+                                            <td>{{ state.name }}</td>
+                                            <td>{{ state.state_type }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+
                             {% elif method_name == 'get_crew_info' %}
                                 <div class="card mb-3">
                                     <div class="card-header">

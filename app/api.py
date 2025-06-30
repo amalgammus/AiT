@@ -119,6 +119,11 @@ class APIClient:
         params = {}  # Пустые параметры, но подпись будет сгенерирована
         return self._make_request('GET', 'get_order_states_list', params=params)
 
+    def get_crew_states_list(self):
+        """Получить список состояний экипажа"""
+        params = {}  # Пустые параметры, но подпись будет сгенерирована
+        return self._make_request('GET', 'get_crew_states_list', params=params)
+
     def _process_response(self, response):
         try:
             return response.json()

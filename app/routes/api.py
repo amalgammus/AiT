@@ -28,6 +28,7 @@ def api_console():
         {'name': 'get_crew_groups_list', 'method': 'GET', 'description': 'Получить список групп экипажа'},
         {'name': 'get_crew_info', 'method': 'GET', 'description': 'Получить информацию об экипаже'},
         {'name': 'get_order_states_list', 'method': 'GET', 'description': 'Получить список состояний заказа'},
+        {'name': 'get_crew_states_list', 'method': 'GET', 'description': 'Получить список состояний экипажа'},
     ]
 
     result = None
@@ -89,6 +90,8 @@ def api_console():
                 result = client.get_crew_info(crew_id=int(crew_id), fields=fields if fields else None)
             elif method_name == 'get_order_states_list':
                 result = client.get_order_states_list()
+            elif method_name == 'get_crew_states_list':
+                result = client.get_crew_states_list()
             else:
                 result = {
                     "code": -1,
