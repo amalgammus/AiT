@@ -12,14 +12,17 @@
                     <h5>API Configurations</h5>
                 </div>
                 <div class="card-body">
-                    <form method="POST" id="selectForm">
-                        <input type="hidden" name="form_type" value="select_config">
-                        {{ select_form.hidden_tag() }}
-                        <div class="mb-3">
-                            {{ select_form.config(class="form-select") }}
-                        </div>
-                        <button type="submit" class="btn btn-primary w-100">Load</button>
-                    </form>
+                    <div class="mb-3">
+                        <label class="form-label">Select Configuration:</label>
+                        <select class="form-select" id="configSelect" onchange="loadConfig(this.value)">
+                            <option value="">Select configuration...</option>
+                            {% for config in select_form.config.choices %}
+                                <option value="{{ config[0] }}" {% if selected_config and selected_config.id == config[0] %}selected{% endif %}>
+                                    {{ config[1] }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
 
                     <hr>
 
@@ -30,26 +33,26 @@
 
                         <div class="mb-3">
                             {{ config_form.name.label(class="form-label") }}
-                            {{ config_form.name(class="form-control") }}
+                            {{ config_form.name(class="form-control", id="name") }}
                         </div>
 
                         <div class="mb-3">
                             {{ config_form.base_url.label(class="form-label") }}
-                            {{ config_form.base_url(class="form-control", placeholder="https://ip:port") }}
+                            {{ config_form.base_url(class="form-control", id="base_url", placeholder="https://ip:port") }}
                         </div>
 
                         <div class="mb-3">
                             {{ config_form.secret_key.label(class="form-label") }}
-                            {{ config_form.secret_key(class="form-control", type="password") }}
+                            {{ config_form.secret_key(class="form-control", type="password", id="secret_key") }}
                         </div>
 
                         <div class="mb-3 form-check">
-                            {{ config_form.verify_ssl(class="form-check-input") }}
+                            {{ config_form.verify_ssl(class="form-check-input", id="verify_ssl") }}
                             {{ config_form.verify_ssl.label(class="form-check-label") }}
                         </div>
 
                         <div class="mb-3 form-check">
-                            {{ config_form.is_default(class="form-check-input") }}
+                            {{ config_form.is_default(class="form-check-input", id="is_default") }}
                             {{ config_form.is_default.label(class="form-check-label") }}
                         </div>
 
@@ -70,12 +73,12 @@
                 <div class="card-body">
                     <form method="POST" id="apiForm">
                         <input type="hidden" name="form_type" value="execute_api">
-                        <input type="hidden" name="selected_config_id" value="{{ selected_config.id if selected_config else '' }}">
+                        <input type="hidden" name="selected_config_id" id="selected_config_id" value="{{ selected_config.id if selected_config else '' }}">
 
                         <div class="mb-3">
                             <label class="form-label">Selected Configuration:</label>
                             <input type="text" class="form-control" readonly
-                                   value="{{ selected_config.name if selected_config else 'None (using default)' }}">
+                                   value="{{ selected_config.name if selected_config else 'None (using default)' }}" id="selected_config_name">
                         </div>
 
                         <div class="mb-3">
@@ -289,7 +292,45 @@
 </div>
 
 <script>
-    const result_json = {{ result_json|tojson|safe }};
+    function loadConfig(configId) {
+        if (!configId) {
+            document.getElementById('selected_config_id').value = '';
+            document.getElementById('selected_config_name').value = 'None (using default)';
+            return;
+        }
+
+        const select = document.getElementById('configSelect');
+        const originalText = select.selectedOptions[0].text;
+        select.disabled = true;
+        select.selectedOptions[0].text = 'Loading...';
+
+        fetch(`/api/get_config?config_id=${configId}`)
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(data => {
+                if (data.config) {
+                    document.getElementById('name').value = data.config.name;
+                    document.getElementById('base_url').value = data.config.base_url;
+                    document.getElementById('secret_key').value = data.config.secret_key;
+                    document.getElementById('verify_ssl').checked = data.config.verify_ssl;
+                    document.getElementById('is_default').checked = data.config.is_default;
+                    document.querySelector('input[name="config_id"]').value = data.config.id;
+
+                    document.getElementById('selected_config_id').value = data.config.id;
+                    document.getElementById('selected_config_name').value = data.config.name;
+                }
+            })
+            .catch(error => {
+                console.error('Error loading config:', error);
+                alert('Failed to load configuration');
+            })
+            .finally(() => {
+                select.disabled = false;
+                select.selectedOptions[0].text = originalText;
+            });
+    }
 
     function updateFormFields() {
         const method = document.getElementById('api_method').value;
@@ -306,8 +347,6 @@
 
     function loadOrderStates() {
         const newStateSelect = document.getElementById('new_state');
-
-        // Show loading indicator
         newStateSelect.innerHTML = '<option value="" class="loading">Loading states...</option>';
         newStateSelect.disabled = true;
 
