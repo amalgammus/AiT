@@ -91,7 +91,7 @@
                             <select class="form-select" id="api_method" name="api_method" required>
                                 <option value="">Select method...</option>
                                 {% for method in api_methods %}
-                                <option value="{{ method.name }}" {% if request.form.api_method == method.name %}selected{% endif %}>
+                                <option value="{{ method.name }}" {% if request.form.api_method == method.name %} selected {% endif %}>
                                     {{ method.name }} ({{ method.method }}) - {{ method.description }}
                                 </option>
                                 {% endfor %}

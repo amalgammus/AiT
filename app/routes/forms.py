@@ -1,13 +1,15 @@
 import re
-from typing import Any, Optional as Opt
-
+from typing import Any, Optional, TypeVar
 from flask_login import current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SelectField, TextAreaField
-from wtforms.validators import DataRequired, EqualTo, Length, ValidationError, Optional
+from wtforms.validators import DataRequired, EqualTo, Length, ValidationError, Optional as Opt
 
 from app.models.department import Department
 from app.models.user import User
+
+# Тип для объекта пользователя
+UserObj = TypeVar('UserObj', bound=User)
 
 
 def validate_email(_form: FlaskForm, field: StringField) -> None:
@@ -54,12 +56,21 @@ class UserEditForm(FlaskForm):
         validators=[EqualTo('password')]
     )
     is_admin = BooleanField('Is Admin')
-    department_id = SelectField('Department', coerce=int, validators=[Optional()])
+    department_id = SelectField('Department', coerce=int, validators=[Opt()])
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        self._obj: Opt[User] = kwargs.pop('obj', None)
+        self._obj: Optional[User] = kwargs.pop('obj', None)
         super().__init__(*args, **kwargs)
 
+        # Заполняем данные формы из объекта пользователя
+        if self._obj:
+            self.username.data = self._obj.username
+            self.email.data = self._obj.email
+            self.is_admin.data = self._obj.is_admin
+            if hasattr(self._obj, 'department_id'):
+                self.department_id.data = self._obj.department_id
+
+        # Заполняем choices для department_id
         if current_user.is_authenticated and current_user.is_admin:
             self.department_id.choices = [(d.id, d.name) for d in Department.query.order_by('name')]
         else:
@@ -96,8 +107,12 @@ class UserProfileForm(FlaskForm):
     )
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        self._obj: Opt[User] = kwargs.pop('obj', None)
+        self._obj: Optional[User] = kwargs.pop('obj', None)
         super().__init__(*args, **kwargs)
+
+        if self._obj:
+            self.username.data = self._obj.username
+            self.email.data = self._obj.email
 
     def validate_username(self, field: StringField) -> None:
         if self._obj is None:
@@ -121,11 +136,14 @@ class UserProfileForm(FlaskForm):
 
 
 class AdminProfileForm(UserProfileForm):
-    department_id = SelectField('Department', coerce=int, validators=[Optional()])
+    department_id = SelectField('Department', coerce=int, validators=[Opt()])
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.department_id.choices = [(d.id, d.name) for d in Department.query.order_by('name')]
+
+        if self._obj and hasattr(self._obj, 'department_id'):
+            self.department_id.data = self._obj.department_id
 
 
 class DepartmentForm(FlaskForm):

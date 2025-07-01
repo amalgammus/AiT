@@ -78,7 +78,7 @@ def create_user():
 @login_required
 def edit_user(user_id):
     user = User.query.get_or_404(user_id)
-    form = UserEditForm(obj=user)
+    form = UserEditForm(obj=user)  # Убедитесь, что передается obj=user
 
     if not current_user.is_admin:
         if current_user.id != user.id:
@@ -96,13 +96,19 @@ def edit_user(user_id):
                 user.set_password(form.password.data)
             db.session.commit()
             flash('User updated successfully', 'success')
-            # Исправлено: используем user_id вместо id
             return redirect(url_for('user.list_users' if current_user.is_admin else 'user.user_profile'))
         except IntegrityError:
             db.session.rollback()
             flash('Error updating user', 'danger')
 
-    return render_template('user/edit.html', form=form, user=user, is_admin=current_user.is_admin)
+    # Для отладки
+    print(f"Form data: {form.data}")
+    print(f"User department: {user.department_id}")
+
+    return render_template('user/edit.html',
+                           form=form,
+                           user=user,
+                           is_admin=current_user.is_admin)
 
 
 @user_bp.route('/users/<int:user_id>/delete', methods=['POST'])
