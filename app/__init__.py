@@ -31,11 +31,11 @@ def create_app(config_class=Config):
     logging.getLogger('app.api').setLevel(Config.API_LOG_LEVEL)
 
     @app.errorhandler(403)
-    def forbidden_error(error):
+    def forbidden_error(_):
         return render_template('403.html'), 403
 
     @app.errorhandler(IntegrityError)
-    def handle_integrity_error(e):
+    def handle_integrity_error(_):
         db.session.rollback()
         flash('Ошибка сохранения: такие данные уже существуют', 'danger')
         return redirect(request.referrer or url_for('user.list_users'))

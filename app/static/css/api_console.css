@@ -1,0 +1,37 @@
+/* API Console specific styles */
+.btn-group .btn.active {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.api-console pre {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.api-console .table {
+    font-size: 0.9rem;
+}
+
+.api-console .card-body .row > div {
+    padding: 0.25rem;
+}
+
+.api-console select[disabled] {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.api-console .loading {
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* Toast notification positioning */
+.toast-container {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    padding: 1rem;
+    z-index: 11;
+}

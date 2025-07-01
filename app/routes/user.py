@@ -1,12 +1,10 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, abort
 from flask_login import login_required, current_user
 from sqlalchemy.exc import IntegrityError
-from wtforms.fields.choices import SelectField
 
-from app.models.user import User
-from app.models.department import Department
 from app.extensions import db
-from werkzeug.security import generate_password_hash
+from app.models.department import Department
+from app.models.user import User
 from .forms import UserForm, UserEditForm, UserProfileForm, AdminProfileForm
 
 user_bp = Blueprint('user', __name__)
@@ -15,21 +13,16 @@ user_bp = Blueprint('user', __name__)
 @user_bp.route('/profile', methods=['GET', 'POST'])
 @login_required
 def user_profile():
-    # Используем разные формы для админов и обычных пользователей
-    FormClass = AdminProfileForm if current_user.is_admin else UserProfileForm
-    form = FormClass(obj=current_user)
+    form_class = AdminProfileForm if current_user.is_admin else UserProfileForm
+    form = form_class(obj=current_user)
 
     if form.validate_on_submit():
         try:
             form.populate_obj(current_user)
-
-            # Для админов сохраняем department_id
             if current_user.is_admin:
                 current_user.department_id = form.department_id.data
-
             if form.password.data:
                 current_user.set_password(form.password.data)
-
             db.session.commit()
             flash('Profile updated successfully', 'success')
             return redirect(url_for('user.user_profile'))
@@ -62,26 +55,30 @@ def create_user():
     form.department_id.choices = [(d.id, d.name) for d in Department.query.all()]
 
     if form.validate_on_submit():
-        user = User(
-            username=form.username.data,
-            email=form.email.data,
-            is_admin=form.is_admin.data,
-            department_id=form.department_id.data
-        )
-        user.set_password(form.password.data)
-        db.session.add(user)
-        db.session.commit()
-        flash('User created successfully', 'success')
-        return redirect(url_for('user.list_users'))
+        try:
+            user = User(
+                username=form.username.data,
+                email=form.email.data,
+                is_admin=form.is_admin.data,
+                department_id=form.department_id.data
+            )
+            user.set_password(form.password.data)
+            db.session.add(user)
+            db.session.commit()
+            flash('User created successfully', 'success')
+            return redirect(url_for('user.list_users'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error creating user: {str(e)}', 'danger')
 
     return render_template('user/create.html', form=form)
 
 
-@user_bp.route('/users/<int:id>/edit', methods=['GET', 'POST'])
+@user_bp.route('/users/<int:user_id>/edit', methods=['GET', 'POST'])
 @login_required
-def edit_user(id):
-    user = User.query.get_or_404(id)
-    form = UserEditForm(obj=user)  # Передаем объект пользователя в форму
+def edit_user(user_id):
+    user = User.query.get_or_404(user_id)
+    form = UserEditForm(obj=user)
 
     if not current_user.is_admin:
         if current_user.id != user.id:
@@ -91,18 +88,15 @@ def edit_user(id):
 
     if form.validate_on_submit():
         try:
-            # Для администраторов сохраняем все данные
             if current_user.is_admin:
                 user.department_id = form.department_id.data
                 user.is_admin = form.is_admin.data
-
-            form.populate_obj(user)  # Обновляем основные поля
-
+            form.populate_obj(user)
             if form.password.data:
                 user.set_password(form.password.data)
-
             db.session.commit()
             flash('User updated successfully', 'success')
+            # Исправлено: используем user_id вместо id
             return redirect(url_for('user.list_users' if current_user.is_admin else 'user.user_profile'))
         except IntegrityError:
             db.session.rollback()
@@ -111,14 +105,13 @@ def edit_user(id):
     return render_template('user/edit.html', form=form, user=user, is_admin=current_user.is_admin)
 
 
-@user_bp.route('/users/<int:id>/delete', methods=['POST'])
+@user_bp.route('/users/<int:user_id>/delete', methods=['POST'])
 @login_required
-def delete_user(id):
+def delete_user(user_id):
     if not current_user.is_admin:
         abort(403)
 
-    user = User.query.get_or_404(id)
-
+    user = User.query.get_or_404(user_id)
     if user == current_user:
         flash('You cannot delete yourself', 'danger')
     else:

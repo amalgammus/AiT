@@ -10,6 +10,7 @@ department_bp = Blueprint('department', __name__)
 @department_bp.route('/departments')
 @login_required
 def list_departments():
+    """List all departments"""
     if not current_user.is_admin:
         abort(403)
 
@@ -20,6 +21,7 @@ def list_departments():
 @department_bp.route('/departments/create', methods=['GET', 'POST'])
 @login_required
 def create_department():
+    """Create new department"""
     if not current_user.is_admin:
         abort(403)
 
@@ -38,13 +40,14 @@ def create_department():
     return render_template('department/create.html', form=form)
 
 
-@department_bp.route('/departments/<int:id>/edit', methods=['GET', 'POST'])
+@department_bp.route('/departments/<int:dept_id>/edit', methods=['GET', 'POST'])
 @login_required
-def edit_department(id):
+def edit_department(dept_id):
+    """Edit existing department"""
     if not current_user.is_admin:
         abort(403)
 
-    department = Department.query.get_or_404(id)
+    department = Department.query.get_or_404(dept_id)
     form = DepartmentForm(obj=department)
 
     if form.validate_on_submit():
@@ -57,13 +60,14 @@ def edit_department(id):
     return render_template('department/edit.html', form=form, department=department)
 
 
-@department_bp.route('/departments/<int:id>/delete', methods=['POST'])
+@department_bp.route('/departments/<int:dept_id>/delete', methods=['POST'])
 @login_required
-def delete_department(id):
+def delete_department(dept_id):
+    """Delete department"""
     if not current_user.is_admin:
         abort(403)
 
-    department = Department.query.get_or_404(id)
+    department = Department.query.get_or_404(dept_id)
 
     if department.users:
         flash('Cannot delete department with users', 'danger')
