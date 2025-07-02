@@ -4,6 +4,7 @@ from flask_login import current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SelectField, TextAreaField
 from wtforms.validators import DataRequired, EqualTo, Length, ValidationError, Optional as Opt
+from typing import cast, List
 
 from app.models.department import Department
 from app.models.user import User
@@ -94,13 +95,13 @@ class UserEditForm(FlaskForm):
         ).first():
             raise ValidationError('This email is already in use')
 
-    def validate(self, extra_validators=None):
+    def validate(self, extra_validators=None) -> bool:
         if not super().validate():
             return False
 
-        # Дополнительная проверка: если введен пароль, должно быть и подтверждение
         if self.password.data and not self.confirm_password.data:
-            self.confirm_password.errors.append('Please confirm your password')
+            errors: List[str] = cast(List[str], self.confirm_password.errors)  # Приводим к `list[str]`
+            errors.append('Please confirm your password')
             return False
 
         return True
@@ -148,7 +149,8 @@ class UserProfileForm(FlaskForm):
             return False
 
         if self.password.data and not self.confirm_password.data:
-            self.confirm_password.errors.append('Please confirm your password')
+            errors: List[str] = cast(List[str], self.confirm_password.errors)  # Приводим к `list[str]`
+            errors.append('Please confirm your password')
             return False
 
         return True
