@@ -18,3 +18,12 @@ pre {
 .form-select {
     margin-bottom: 1rem;
 }
+
+.table-actions {
+    white-space: nowrap;
+    width: 1%;
+}
+
+.table-actions .btn {
+    margin-right: 5px;
+}

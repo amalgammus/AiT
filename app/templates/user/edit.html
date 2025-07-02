@@ -3,23 +3,21 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2>{% if is_admin %}Edit User{% else %}Edit Profile{% endif %}</h2>
+    <h2>Edit User</h2>
     <form method="POST" novalidate>
         {{ form.hidden_tag() }}
-
         {{ render_field(form.username) }}
         {{ render_field(form.email) }}
         {{ render_field(form.password, help_text="Leave blank to keep current password") }}
         {{ render_field(form.confirm_password, help_text="Required if changing password") }}
 
-        {% if is_admin %}
+        {% if current_user.is_admin %}
             {{ render_field(form.is_admin) }}
             {{ render_field(form.department_id) }}
         {% endif %}
 
         <button type="submit" class="btn btn-primary">Save Changes</button>
-        <a href="{{ url_for('user.list_users' if is_admin else 'user.user_profile') }}"
-           class="btn btn-secondary">Cancel</a>
+        <a href="{{ url_for('user.list_users') }}" class="btn btn-secondary">Cancel</a>
     </form>
 </div>
 {% endblock %}
