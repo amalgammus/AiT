@@ -1,29 +1,41 @@
-{% macro render_field(field) %}
+{% macro render_field(field, class='', help_text=None) %}
 <div class="mb-3">
     {% if field.type == 'BooleanField' %}
         <div class="form-check">
-            {{ field(class="form-check-input") }}
+            {{ field(class="form-check-input " + class + (" is-invalid" if field.errors else "")) }}
             {{ field.label(class="form-check-label") }}
             {% if field.errors %}
                 <div class="invalid-feedback d-block">
-                    {% for error in field.errors %}
-                        <span>{{ error }}</span>
-                    {% endfor %}
+                    {% for error in field.errors %}<span>{{ error }}</span>{% endfor %}
                 </div>
             {% endif %}
         </div>
+    {% elif field.type == 'SelectField' %}
+        {{ field.label(class="form-label") }}
+        <select class="form-select {{ class }}{{ ' is-invalid' if field.errors else '' }}"
+                id="{{ field.id }}" name="{{ field.name }}">
+            {% for value, label in field.choices %}
+                <option value="{{ value }}"{% if field.data == value %} selected{% endif %}>
+                    {{ label }}
+                </option>
+            {% endfor %}
+        </select>
+        {% if field.errors %}
+            <div class="invalid-feedback">
+                {% for error in field.errors %}<span>{{ error }}</span>{% endfor %}
+            </div>
+        {% endif %}
     {% else %}
         {{ field.label(class="form-label") }}
+        {{ field(class="form-control " + class + (" is-invalid" if field.errors else "")) }}
         {% if field.errors %}
-            {{ field(class="form-control is-invalid") }}
             <div class="invalid-feedback">
-                {% for error in field.errors %}
-                    <span>{{ error }}</span>
-                {% endfor %}
+                {% for error in field.errors %}<span>{{ error }}</span>{% endfor %}
             </div>
-        {% else %}
-            {{ field(class="form-control") }}
         {% endif %}
+    {% endif %}
+    {% if help_text %}
+        <small class="form-text text-muted">{{ help_text }}</small>
     {% endif %}
 </div>
 {% endmacro %}

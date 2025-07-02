@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, abort
+from flask import Blueprint, render_template, redirect, url_for, flash, abort, request
 from flask_login import login_required, current_user
 from sqlalchemy.exc import IntegrityError
 
@@ -16,29 +16,40 @@ def user_profile():
     form_class = AdminProfileForm if current_user.is_admin else UserProfileForm
     form = form_class(obj=current_user)
 
+    # Для админов загружаем отделы
+    if current_user.is_admin and hasattr(form, 'department_id'):
+        form.department_id.choices = [(d.id, d.name) for d in Department.query.all()]
+
     if form.validate_on_submit():
         try:
-            form.populate_obj(current_user)
-            if current_user.is_admin:
-                current_user.department_id = form.department_id.data
+            current_user.username = form.username.data
+            current_user.email = form.email.data
+
             if form.password.data:
                 current_user.set_password(form.password.data)
+
+            if current_user.is_admin:
+                current_user.is_admin = form.is_admin.data
+                current_user.department_id = form.department_id.data
+
             db.session.commit()
             flash('Profile updated successfully', 'success')
             return redirect(url_for('user.user_profile'))
         except IntegrityError:
             db.session.rollback()
-            flash('Error updating profile', 'danger')
+            flash('Error: username or email already exists', 'danger')
 
     return render_template('user/profile.html',
                            form=form,
-                           is_admin=current_user.is_admin,
-                           current_user=current_user)
+                           current_user=current_user,
+                           is_admin=current_user.is_admin)
 
 
 @user_bp.route('/users')
 @login_required
 def list_users():
+    if not current_user.is_admin:
+        abort(403)
     users = User.query.all()
     return render_template('user/list.html',
                            users=users,
@@ -67,9 +78,9 @@ def create_user():
             db.session.commit()
             flash('User created successfully', 'success')
             return redirect(url_for('user.list_users'))
-        except Exception as e:
+        except IntegrityError:
             db.session.rollback()
-            flash(f'Error creating user: {str(e)}', 'danger')
+            flash('Error creating user: email or username already exists', 'danger')
 
     return render_template('user/create.html', form=form)
 
@@ -78,32 +89,57 @@ def create_user():
 @login_required
 def edit_user(user_id):
     user = User.query.get_or_404(user_id)
-    form = UserEditForm(obj=user)  # Убедитесь, что передается obj=user
+    if not current_user.is_admin and current_user.id != user.id:
+        abort(403)
 
-    if not current_user.is_admin:
-        if current_user.id != user.id:
-            abort(403)
-        del form.is_admin
-        del form.department_id
+    departments = Department.query.all()
+    dept_choices = [(str(d.id), d.name) for d in departments]
 
-    if form.validate_on_submit():
+    if request.method == 'GET':
+        form = UserEditForm(obj=user)
+        if current_user.is_admin:
+            form.department_id.choices = dept_choices
+            form.department_id.data = str(user.department_id) if user.department_id else None
+        else:
+            del form.is_admin
+            del form.department_id
+        return render_template('user/edit.html',
+                               form=form,
+                               user=user,
+                               is_admin=current_user.is_admin)
+
+    form = UserEditForm(request.form)
+
+    if current_user.is_admin:
+        form.department_id.choices = dept_choices
+        form.is_admin.data = request.form.get('is_admin') == 'y'
+        if 'department_id' in request.form:
+            form.department_id.data = request.form['department_id']
+
+    if form.validate():
         try:
-            if current_user.is_admin:
-                user.department_id = form.department_id.data
-                user.is_admin = form.is_admin.data
-            form.populate_obj(user)
+            user.username = form.username.data
+            user.email = form.email.data
+
             if form.password.data:
                 user.set_password(form.password.data)
+
+            if current_user.is_admin:
+                user.is_admin = form.is_admin.data
+                user.department_id = int(form.department_id.data) if form.department_id.data else None
+
             db.session.commit()
             flash('User updated successfully', 'success')
-            return redirect(url_for('user.list_users' if current_user.is_admin else 'user.user_profile'))
+            return redirect(url_for('user.list_users'))
+
+        except ValueError:
+            db.session.rollback()
+            flash('Invalid department ID', 'danger')
         except IntegrityError:
             db.session.rollback()
-            flash('Error updating user', 'danger')
-
-    # Для отладки
-    print(f"Form data: {form.data}")
-    print(f"User department: {user.department_id}")
+            flash('Username or email already exists', 'danger')
+    else:
+        flash('Please correct the form errors', 'danger')
 
     return render_template('user/edit.html',
                            form=form,

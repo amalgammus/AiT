@@ -13,10 +13,10 @@ UserObj = TypeVar('UserObj', bound=User)
 
 
 def validate_email(_form: FlaskForm, field: StringField) -> None:
-    """Кастомный валидатор email без зависимости от email_validator"""
+    """Кастомный валидатор email"""
     email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
     if not re.match(email_regex, field.data):
-        raise ValidationError('Введите корректный email адрес')
+        raise ValidationError('Please enter a valid email address')
 
 
 class APIConfigForm(FlaskForm):
@@ -50,19 +50,18 @@ class UserForm(FlaskForm):
 class UserEditForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired(), Length(min=4, max=64)])
     email = StringField('Email', validators=[DataRequired(), validate_email])
-    password = PasswordField('New Password', validators=[Length(min=6)])
+    password = PasswordField('New Password', validators=[Opt(), Length(min=6)])
     confirm_password = PasswordField(
         'Confirm New Password',
-        validators=[EqualTo('password')]
+        validators=[Opt(), EqualTo('password', message='Passwords must match')]
     )
     is_admin = BooleanField('Is Admin')
-    department_id = SelectField('Department', coerce=int, validators=[Opt()])
+    department_id = SelectField('Department', coerce=str, validators=[Opt()])
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         self._obj: Optional[User] = kwargs.pop('obj', None)
         super().__init__(*args, **kwargs)
 
-        # Заполняем данные формы из объекта пользователя
         if self._obj:
             self.username.data = self._obj.username
             self.email.data = self._obj.email
@@ -70,7 +69,6 @@ class UserEditForm(FlaskForm):
             if hasattr(self._obj, 'department_id'):
                 self.department_id.data = self._obj.department_id
 
-        # Заполняем choices для department_id
         if current_user.is_authenticated and current_user.is_admin:
             self.department_id.choices = [(d.id, d.name) for d in Department.query.order_by('name')]
         else:
@@ -96,14 +94,25 @@ class UserEditForm(FlaskForm):
         ).first():
             raise ValidationError('This email is already in use')
 
+    def validate(self, extra_validators=None):
+        if not super().validate():
+            return False
+
+        # Дополнительная проверка: если введен пароль, должно быть и подтверждение
+        if self.password.data and not self.confirm_password.data:
+            self.confirm_password.errors.append('Please confirm your password')
+            return False
+
+        return True
+
 
 class UserProfileForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired(), Length(min=4, max=64)])
     email = StringField('Email', validators=[DataRequired(), validate_email])
-    password = PasswordField('New Password', validators=[Length(min=6)])
+    password = PasswordField('New Password', validators=[Opt(), Length(min=6)])
     confirm_password = PasswordField(
         'Confirm Password',
-        validators=[EqualTo('password')]
+        validators=[Opt(), EqualTo('password', message='Passwords must match')]
     )
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -134,16 +143,24 @@ class UserProfileForm(FlaskForm):
         ).first():
             raise ValidationError('Email already in use')
 
+    def validate(self, extra_validators=None):
+        if not super().validate():
+            return False
+
+        if self.password.data and not self.confirm_password.data:
+            self.confirm_password.errors.append('Please confirm your password')
+            return False
+
+        return True
+
 
 class AdminProfileForm(UserProfileForm):
+    is_admin = BooleanField('Is Admin')
     department_id = SelectField('Department', coerce=int, validators=[Opt()])
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.department_id.choices = [(d.id, d.name) for d in Department.query.order_by('name')]
-
-        if self._obj and hasattr(self._obj, 'department_id'):
-            self.department_id.data = self._obj.department_id
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.department_id.choices = [(d.id, d.name) for d in Department.query.all()]
 
 
 class DepartmentForm(FlaskForm):
