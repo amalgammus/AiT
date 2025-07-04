@@ -24,10 +24,11 @@ def create_app(config_class='app.config.Config'):
             return db.session.get(User, int(user_id))
 
     # Регистрация Blueprints
-    from .routes import auth_bp, user_bp, department_bp, api_bp
+    from .routes import auth_bp, user_bp, department_bp, api_bp, mysql_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(user_bp)
     app.register_blueprint(department_bp)
     app.register_blueprint(api_bp, url_prefix='/api')
+    app.register_blueprint(mysql_bp)
 
     return app

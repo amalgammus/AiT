@@ -1,8 +1,23 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, BooleanField, SelectField
-from wtforms.validators import DataRequired, Length, EqualTo, ValidationError, Optional
+from wtforms import (
+    StringField,
+    PasswordField,
+    BooleanField,
+    SelectField,
+    IntegerField,
+    DateTimeField
+)
+from wtforms.validators import (
+    DataRequired,
+    Length,
+    EqualTo,
+    ValidationError,
+    Optional,
+    NumberRange
+)
 from app.models import User, Department
 import re
+from datetime import datetime, timedelta
 
 
 def validate_email(form, field):
@@ -92,3 +107,25 @@ class APIConfigForm(FlaskForm):
 
 class APISelectForm(FlaskForm):
     config = SelectField('Select Configuration', coerce=int)
+
+
+class MySQLQueryForm(FlaskForm):
+    start_date = DateTimeField(
+        'Start Date',
+        validators=[DataRequired()],
+        format='%Y-%m-%d %H:%M:%S',
+        default=datetime.now().replace(day=1, hour=0, minute=0, second=0)
+    )
+    end_date = DateTimeField(
+        'End Date',
+        validators=[DataRequired()],
+        format='%Y-%m-%d %H:%M:%S',
+        default=(datetime.now().replace(day=28) + timedelta(days=4)).replace(hour=23, minute=59, second=59)
+    )
+    client_id = IntegerField(
+        'Client ID',
+        validators=[
+            DataRequired(),
+            NumberRange(min=1, message='Client ID must be positive')
+        ]
+    )

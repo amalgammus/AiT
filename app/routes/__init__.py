@@ -5,6 +5,7 @@ auth_bp = Blueprint('auth', __name__)
 user_bp = Blueprint('user', __name__)
 department_bp = Blueprint('department', __name__)
 api_bp = Blueprint('api', __name__)
+mysql_bp = Blueprint('mysql_query', __name__)
 
 
 # Явная регистрация маршрутов (после создания Blueprint)
@@ -19,6 +20,7 @@ def register_routes():
         delete_department
     )
     from .api import api_console, get_config
+    from .mysql_query import mysql_query
 
     # Auth routes
     auth_bp.add_url_rule('/', 'home', login)
@@ -44,6 +46,9 @@ def register_routes():
     # API routes
     api_bp.add_url_rule('/api_console', 'api_console', api_console, methods=['GET', 'POST'])
     api_bp.add_url_rule('/get_config', 'get_config', get_config, methods=['GET'])
+
+    # MySQL routes
+    mysql_bp.add_url_rule('/mysql_query', 'mysql_query', mysql_query, methods=['GET', 'POST'])
 
 
 register_routes()  # Выполняем регистрацию
