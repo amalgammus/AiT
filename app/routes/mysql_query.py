@@ -1,10 +1,13 @@
+import sys
+from datetime import datetime, timedelta
+
+import pymysql
 from flask import Blueprint, render_template, request, flash, abort
 from flask_login import login_required, current_user
+from pymysql.cursors import DictCursor
+
 from app.models import MySQLConfig
 from app.routes.forms import MySQLQueryForm
-import pymysql
-from datetime import datetime, timedelta
-import sys
 
 mysql_bp = Blueprint('mysql_query', __name__)
 
@@ -62,8 +65,8 @@ def mysql_query():
 
         query = """
             SELECT 
-                p.name as 'Project', u.lastname as 'Employee', iss.subject as 'Task',  
-                SUM(te.hours) as 'Hours'
+                p.name as 'Project', u.lastname as 'Employee', iss.subject,  
+                SUM(te.hours) as hours
             FROM time_entries te 
             LEFT JOIN issues iss ON te.issue_id = iss.id
             LEFT JOIN issues ir ON iss.root_id = ir.id

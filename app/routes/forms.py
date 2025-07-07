@@ -20,7 +20,7 @@ import re
 from datetime import datetime, timedelta
 
 
-def validate_email(form, field):
+def validate_email(field):
     if not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', field.data):
         raise ValidationError('Invalid email address')
 
