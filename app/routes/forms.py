@@ -1,3 +1,5 @@
+import re
+
 from flask_wtf import FlaskForm
 from wtforms import (
     StringField,
@@ -15,12 +17,11 @@ from wtforms.validators import (
     Optional,
     NumberRange
 )
+
 from app.models import User, Department
-import re
-from datetime import datetime, timedelta
 
 
-def validate_email(field):
+def validate_email(form, field):
     if not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', field.data):
         raise ValidationError('Invalid email address')
 
@@ -111,16 +112,22 @@ class APISelectForm(FlaskForm):
 
 class MySQLQueryForm(FlaskForm):
     start_date = DateTimeField(
-        'Start Date',
+        'Начало периода',
         validators=[DataRequired()],
         format='%Y-%m-%d %H:%M:%S',
-        default=datetime.now().replace(day=1, hour=0, minute=0, second=0)
+        render_kw={
+            'placeholder': 'ГГГГ-ММ-ДД 00:00:00',
+            'autocomplete': 'off'
+        }
     )
     end_date = DateTimeField(
-        'End Date',
+        'Конец периода',
         validators=[DataRequired()],
         format='%Y-%m-%d %H:%M:%S',
-        default=(datetime.now().replace(day=28) + timedelta(days=4)).replace(hour=23, minute=59, second=59)
+        render_kw={
+            'placeholder': 'ГГГГ-ММ-ДД 23:59:59',
+            'autocomplete': 'off'
+        }
     )
     client_id = IntegerField(
         'Client ID',

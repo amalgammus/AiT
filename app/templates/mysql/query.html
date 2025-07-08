@@ -1,38 +1,82 @@
 {% extends "base.html" %}
-
+{% block head %}
+{{ super() }}
+<!-- Подключаем Datepicker -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
+{% endblock %}
 {% block content %}
 <div class="container mt-4">
-    <h2><i class="bi bi-database"></i> MySQL Query Tool</h2>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-database"></i> MySQL Query Tool</h2>
+        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#mysqlConfigModal">
+            <i class="bi bi-gear"></i> Настройки подключения
+        </button>
+    </div>
 
     <div class="card mb-4">
         <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">Query Parameters</h5>
+            <h5 class="mb-0">Параметры запроса</h5>
         </div>
         <div class="card-body">
             <form method="POST">
                 {{ form.hidden_tag() }}
 
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        {{ form.start_date.label(class="form-label") }}
-                        {{ form.start_date(class="form-control") }}
+                <div class="row g-3 align-items-center">
+                    <!-- Дата начала -->
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <span class="input-group-text">От</span>
+                            <input type="text"
+                                   class="form-control datepicker-input"
+                                   id="start_date_visible"
+                                   value="{{ form.start_date.data.strftime('%Y-%m-%d') if form.start_date.data }}"
+                                   readonly
+                                   style="cursor: pointer; background-color: white;">
+                            <span class="input-group-text datepicker-icon" style="cursor: pointer;">
+                                <i class="bi bi-calendar"></i>
+                            </span>
+                            <input type="hidden"
+                                   id="start_date"
+                                   name="start_date"
+                                   value="{{ form.start_date.data.strftime('%Y-%m-%d 00:00:00') if form.start_date.data }}">
+                        </div>
                     </div>
-                    <div class="col-md-6">
-                        {{ form.end_date.label(class="form-label") }}
-                        {{ form.end_date(class="form-control") }}
+
+                    <!-- Дата окончания -->
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <span class="input-group-text">До</span>
+                            <input type="text"
+                                   class="form-control datepicker-input"
+                                   id="end_date_visible"
+                                   value="{{ form.end_date.data.strftime('%Y-%m-%d') if form.end_date.data }}"
+                                   readonly
+                                   style="cursor: pointer; background-color: white;">
+                            <span class="input-group-text datepicker-icon" style="cursor: pointer;">
+                                <i class="bi bi-calendar"></i>
+                            </span>
+                            <input type="hidden"
+                                   id="end_date"
+                                   name="end_date"
+                                   value="{{ form.end_date.data.strftime('%Y-%m-%d 23:59:59') if form.end_date.data }}">
+                        </div>
+                    </div>
+                    <!-- Client ID -->
+                    <div class="col-md-2">
+                        <div class="input-group">
+                            <span class="input-group-text">ID</span>
+                            {{ form.client_id(class="form-control") }}
+                        </div>
+                    </div>
+
+                    <!-- Кнопка -->
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-play-circle"></i> Выполнить
+                        </button>
                     </div>
                 </div>
-
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        {{ form.client_id.label(class="form-label") }}
-                        {{ form.client_id(class="form-control") }}
-                    </div>
-                </div>
-
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-play-circle"></i> Execute Query
-                </button>
             </form>
         </div>
     </div>
@@ -90,6 +134,57 @@
     {% endif %}
 </div>
 
+<!-- Modal для редактирования конфигурации MySQL -->
+<div class="modal fade" id="mysqlConfigModal" tabindex="-1" aria-labelledby="mysqlConfigModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="mysqlConfigModalLabel">Настройки MySQL подключения</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="mysqlConfigForm" method="POST" action="{{ url_for('mysql_query.update_mysql_config') }}">
+                <div class="modal-body">
+                    <input type="hidden" name="config_id" value="{{ config.id }}">
+                    <div class="mb-3">
+                        <label for="config_name" class="form-label">Название подключения</label>
+                        <input type="text" class="form-control" id="config_name" name="name"
+                               value="{{ config.name if config else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="config_host" class="form-label">Хост</label>
+                        <input type="text" class="form-control" id="config_host" name="host"
+                               value="{{ config.host if config else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="config_port" class="form-label">Порт</label>
+                        <input type="number" class="form-control" id="config_port" name="port"
+                               value="{{ config.port if config else 3306 }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="config_database" class="form-label">База данных</label>
+                        <input type="text" class="form-control" id="config_database" name="database"
+                               value="{{ config.database if config else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="config_username" class="form-label">Пользователь</label>
+                        <input type="text" class="form-control" id="config_username" name="username"
+                               value="{{ config.username if config else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="config_password" class="form-label">Пароль</label>
+                        <input type="password" class="form-control" id="config_password" name="password"
+                               value="{{ config.password if config else '' }}" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Стили DataTables -->
 <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
 <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.2.2/css/buttons.bootstrap5.min.css">
@@ -111,6 +206,8 @@
 <script src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.colVis.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.flash.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/locales/bootstrap-datepicker.ru.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
 
 <style>
@@ -121,8 +218,7 @@
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 10px;
-    margin-bottom: 10px;
-    margin-top: 10px;
+    margin: 5px;
 }
 
 /* Стили для выбора количества строк */
@@ -184,32 +280,95 @@
     white-space: nowrap;
     padding-right: 15px;
 }
+
+.datepicker {
+    z-index: 1151 !important;
+}
+.datepicker-input {
+    cursor: pointer;
+    background-color: white !important;
+}
+.datepicker-icon {
+    cursor: pointer;
+    background-color: #f8f9fa;
+    transition: background-color 0.2s;
+}
+.datepicker-icon:hover {
+    background-color: #e9ecef;
+}
+.input-group-text {
+    user-select: none;
+}
 </style>
 
 <script>
 $(document).ready(function() {
-    // Функция для обновления футера
+    // Инициализация datepicker
+    $('.datepicker-input').datepicker({
+        format: 'yyyy-mm-dd',
+        language: 'ru',
+        autoclose: true,
+        todayHighlight: true
+    }).on('changeDate', function(e) {
+        var isStartDate = $(this).attr('id') === 'start_date_visible';
+        var hiddenField = isStartDate ? '#start_date' : '#end_date';
+        var timePart = isStartDate ? '00:00:00' : '23:59:59';
+        $(hiddenField).val(e.format('yyyy-mm-dd') + ' ' + timePart);
+    });
+
+    // Обработка клика по полю ввода
+    $('.datepicker-input').on('click', function() {
+        $(this).datepicker('show');
+    });
+
+    // Обработка клика по иконке календаря
+    $('.datepicker-icon').on('click', function() {
+        $(this).siblings('.datepicker-input').datepicker('show');
+    });
+
+    // Инициализация текущих значений дат
+    $('.datepicker-input').each(function() {
+        var targetField = $(this).data('target');
+        var currentVal = $(targetField).val();
+        if (currentVal) {
+            $(this).datepicker('update', currentVal.split(' ')[0]);
+        }
+    });
+
+    // ========== DATATABLES ==========
     function updateFooter(table) {
-        var hoursColumnIndex = $('#resultsTable th:contains("Hours")').index();
-        if (hoursColumnIndex < 0) return;
+        var hoursColumnIndex = -1;
+        $('#resultsTable th').each(function(index) {
+            var colText = $(this).text().toLowerCase();
+            if (colText.includes('hour') || colText.includes('часы')) {
+                hoursColumnIndex = index;
+                return false;
+            }
+        });
 
-        // Сумма для текущей страницы
-        var pageSum = table.column(hoursColumnIndex, { page: 'current', search: 'applied' })
-            .data()
-            .reduce(function(a, b) { return parseFloat(a) + parseFloat(b); }, 0);
+        if (hoursColumnIndex < 0) {
+            $('.hours-summary').html('');
+            return;
+        }
 
-        // Сумма для всех отфильтрованных данных
-        var filteredSum = table.column(hoursColumnIndex, { search: 'applied' })
+        var pageSum = table.column(hoursColumnIndex, {page: 'current', search: 'applied'})
             .data()
-            .reduce(function(a, b) { return parseFloat(a) + parseFloat(b); }, 0);
+            .reduce(function(a, b) {
+                return (parseFloat(a) || 0) + (parseFloat(b) || 0);
+            }, 0);
+
+        var filteredSum = table.column(hoursColumnIndex, {search: 'applied'})
+            .data()
+            .reduce(function(a, b) {
+                return (parseFloat(a) || 0) + (parseFloat(b) || 0);
+            }, 0);
 
         $('.hours-summary').html(
-            'Page Hours: ' + pageSum.toFixed(2) + ' h | ' +
-            'Total Hours: ' + filteredSum.toFixed(2) + ' h'
+            'Часы на странице: ' + pageSum.toFixed(2) + ' | ' +
+            'Всего часов: ' + filteredSum.toFixed(2)
         );
     }
 
-    // Инициализация DataTable
     var table = $('#resultsTable').DataTable({
         dom: '<"top"<"top-controls"<"buttons-container"B><"length-container"l><"search-container"f>>>rt<"bottom"<"bottom-controls"ip>><"clear">',
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Все"]],
@@ -217,7 +376,7 @@ $(document).ready(function() {
         buttons: [
             {
                 extend: 'copy',
-                text: '<i class="bi bi-clipboard"></i> Copy',
+                text: '<i class="bi bi-clipboard"></i> Копировать',
                 className: 'btn btn-primary btn-sm',
                 exportOptions: {
                     columns: ':visible',
@@ -228,9 +387,21 @@ $(document).ready(function() {
             },
             {
                 extend: 'csv',
-                text: '<i class="bi bi-file-earmark-text"></i> CSV',
+                text: '<i class="bi bi-file-text"></i> CSV',
                 className: 'btn btn-info btn-sm',
-                title: 'Query Report',
+                title: 'Отчет',
+                exportOptions: {
+                    columns: ':visible',
+                    modifier: {
+                        search: 'applied'
+                    }
+                }
+            },
+            {
+                extend: 'excel',
+                text: '<i class="bi bi-file-excel"></i> Excel',
+                className: 'btn btn-success btn-sm',
+                title: 'Отчет',
                 exportOptions: {
                     columns: ':visible',
                     modifier: {
@@ -240,9 +411,9 @@ $(document).ready(function() {
             },
             {
                 extend: 'pdf',
-                text: '<i class="bi bi-file-earmark-pdf"></i> PDF',
-                title: 'Query Report',
+                text: '<i class="bi bi-file-pdf"></i> PDF',
                 className: 'btn btn-danger btn-sm',
+                title: 'Отчет',
                 exportOptions: {
                     columns: ':visible',
                     modifier: {
@@ -250,41 +421,41 @@ $(document).ready(function() {
                     }
                 },
                 customize: function(doc) {
-                    var totalSum = table.column(
-                        $('#resultsTable th:contains("Hours")').index(),
-                        { search: 'applied' }
-                    ).data().reduce(function(a, b) { return parseFloat(a) + parseFloat(b); }, 0);
-
-                    doc.content.push({
-                        text: 'Total Hours: ' + totalSum.toFixed(2),
-                        margin: [0, 10, 0, 0],
-                        alignment: 'right',
-                        bold: true
-                    });
-
-                    doc.defaultStyle = { fontSize: 9, color: '#333' };
-                    doc.styles.title = { fontSize: 12, bold: true, alignment: 'center', margin: [0, 0, 0, 10] };
-                    doc.styles.tableHeader = { fillColor: '#2c3e50', color: '#ffffff', bold: true, margin: [5, 5, 5, 5], alignment: 'center'};
+                    doc.defaultStyle = {
+                        fontSize: 9,
+                        color: '#333',
+                        alignment: 'left'
+                    };
+                    doc.styles.title = {
+                        fontSize: 12,
+                        bold: true,
+                        alignment: 'center',
+                        margin: [0, 0, 0, 10]
+                    };
+                    doc.styles.tableHeader = {
+                        fillColor: '#2c3e50',
+                        color: '#ffffff',
+                        bold: true,
+                        margin: [5, 5, 5, 5],
+                        alignment: 'center'
+                    };
                     doc.pageMargins = [20, 40, 20, 30];
-                }
-            },
-            {
-                extend: 'excel',
-                text: '<i class="bi bi-file-earmark-excel"></i> Excel',
-                className: 'btn btn-success btn-sm',
-                title: 'Query Report',
-                exportOptions: {
-                    columns: ':visible',
-                    modifier: {
-                        search: 'applied'
+
+                    // Добавляем итоги в PDF
+                    if ($('.hours-summary').text()) {
+                        doc.content.push({
+                            text: $('.hours-summary').text(),
+                            margin: [0, 10, 0, 0],
+                            alignment: 'right',
+                            bold: true
+                        });
                     }
                 }
             },
             {
                 extend: 'print',
-                text: '<i class="bi bi-printer"></i> Print',
+                text: '<i class="bi bi-printer"></i> Печать',
                 className: 'btn btn-secondary btn-sm',
-                title: 'Query Report',
                 exportOptions: {
                     columns: ':visible',
                     modifier: {
@@ -292,54 +463,41 @@ $(document).ready(function() {
                     }
                 },
                 customize: function(win) {
-                    $(win.document.body).find('h1').css('text-align', 'center');
-                    $(win.document.body).find('table').addClass('display').css('font-size', '10px');
+                    $(win.document.body).find('table')
+                        .addClass('compact')
+                        .css('font-size', '10px');
 
-                    var totalSum = table.column(
-                        $('#resultsTable th:contains("Hours")').index(),
-                        { search: 'applied' }
-                    ).data().reduce(function(a, b) { return parseFloat(a) + parseFloat(b); }, 0);
-
-                    $(win.document.body).append(
-                        '<div style="text-align:right;margin-top:20px;font-weight:bold;">' +
-                        'Total Hours: ' + totalSum.toFixed(2) + '</div>'
-                    );
+                    if ($('.hours-summary').text()) {
+                        $(win.document.body).append(
+                            '<div style="margin-top:20px;text-align:right;font-weight:bold;">' +
+                            $('.hours-summary').text() + '</div>'
+                        );
+                    }
                 }
             }
         ],
         language: {
-            url: '//cdn.datatables.net/plug-ins/1.11.5/i18n/ru.json',
-            lengthMenu: "Show _MENU_ records",
-            info: "Showing _START_ to _END_ of _TOTAL_ records",
-            infoEmpty: "No records to display",
-            infoFiltered: "(filtered from _MAX_ records)",
-            search: "Search:",
-            paginate: {
-                first: "First",
-                last: "Last",
-                next: "Next",
-                previous: "Previous"
-            }
+            url: '//cdn.datatables.net/plug-ins/1.11.5/i18n/ru.json'
         },
         responsive: true,
-        order: [[0, 'desc']],
-        columnDefs: [
-            {
-                targets: '_all',
-                className: 'dt-head-center'
-            }
-        ],
         initComplete: function() {
-            updateFooter(table);
+            updateFooter(this.api());
         },
         drawCallback: function() {
-            updateFooter(table);
+            updateFooter(this.api());
         }
     });
 
-    // Обработчики событий
-    $('#resultsTable').on('length.dt search.dt page.dt', function() {
+    // Обновление итогов при изменениях
+    table.on('search.dt page.dt length.dt', function() {
         updateFooter(table);
+    });
+
+    // ========== КОПИРОВАНИЕ ==========
+    $('#copyButton').on('click', function() {
+        navigator.clipboard.writeText($('pre').text());
+        var toast = new bootstrap.Toast(document.getElementById('copyToast'));
+        toast.show();
     });
 });
 </script>

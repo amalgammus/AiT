@@ -5,7 +5,7 @@ from app.models.user import User
 auth_bp = Blueprint('auth', __name__)
 
 
-@auth_bp.route('/')
+@auth_bp.route('/', methods=['GET', 'POST'])
 def home():
     if current_user.is_authenticated:
         return redirect(url_for('user.list_users'))

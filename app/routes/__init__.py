@@ -20,7 +20,7 @@ def register_routes():
         delete_department
     )
     from .api import api_console, get_config
-    from .mysql_query import mysql_query
+    from .mysql_query import mysql_query, update_mysql_config
 
     # Auth routes
     auth_bp.add_url_rule('/', 'home', login)
@@ -49,6 +49,7 @@ def register_routes():
 
     # MySQL routes
     mysql_bp.add_url_rule('/mysql_query', 'mysql_query', mysql_query, methods=['GET', 'POST'])
+    mysql_bp.add_url_rule('/update_mysql_config', 'update_mysql_config', update_mysql_config, methods=['POST'])
 
 
 register_routes()  # Выполняем регистрацию

@@ -11,7 +11,6 @@ class MySQLConfig(db.Model):
     database = db.Column(db.String(255), nullable=False)
     username = db.Column(db.String(255), nullable=False)
     password = db.Column(db.String(255), nullable=False)
-    is_default = db.Column(db.Boolean, default=False)
 
     def __repr__(self):
         return f'<MySQLConfig {self.name}>'
