@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, abort
 from flask_login import login_required, current_user
-from app.models.department import Department
+
 from app.extensions import db
+from app.models.department import Department
 from .forms import DepartmentForm
 
 department_bp = Blueprint('department', __name__)
